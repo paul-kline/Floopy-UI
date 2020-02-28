@@ -4,6 +4,7 @@
     <div class="d-flex flex-row">
       <div class="mr-3">messages</div>
       <div v-if="grid && grid.length > 0" class="d-flex flex-column nopad">
+        <div>GameTick: {{gametick}}</div>
         <div
           class="d-flex flex-row nopad"
           :style="'height:' + cellSize + 'px;'"
@@ -18,12 +19,11 @@
           >
             <CanvasSquare
               class="nopad"
+              :gametick="gametick"
               :width="cellSize"
               :height="cellSize"
-              :x="j"
-              :y="index"
+              :gamesquarecontent="grid[index][j]"
               bordercolor="white"
-              :all="all"
             />
             <!-- {{ index + "" + j }} -->
           </div>
@@ -44,17 +44,19 @@
 import { Component, Vue } from "vue-property-decorator";
 import CanvasSquare from "~/components/CanvasSquare.vue";
 import { Square } from "~/ts/Types";
+import GameSquareContent from "~/ts/GameSquareContent";
 const sout = console.log;
 @Component({ components: { CanvasSquare } })
 export default class FloopyComponent extends Vue {
   canvas!: HTMLCanvasElement;
   c!: CanvasRenderingContext2D;
-  grid: any[][] = [];
+  grid: GameSquareContent[][] = [];
   socket!: WebSocket;
   port: number = 8887;
   cellSize: number = 65;
   delay: number = 1000;
   all: Square[] = [];
+  gametick: number = 0;
   status() {
     if (this.getSocket()) {
       switch (this.getSocket().readyState) {
@@ -110,7 +112,8 @@ export default class FloopyComponent extends Vue {
   setUpSocket() {
     this.socket = new WebSocket(`ws://lvh.me:${this.port}`);
     this.socket.onmessage = (ev: MessageEvent) => {
-      sout("Message received!", ev);
+      // sout("Message received!", ev.data);
+      sout("Message parsed is:", JSON.parse(ev.data));
       try {
         this.handleMessage(JSON.parse(ev.data));
       } catch (e) {
@@ -125,15 +128,36 @@ export default class FloopyComponent extends Vue {
     }
     if (obj.board) {
       this.all = obj.board as Square[];
-      sout("all has been set to:", this.all);
+      this.handleNewBoard(obj.board as Square[]);
+      // sout("gametick:" + obj.gametick);
+      if (obj.gametick) {
+        this.gametick = obj.gametick;
+      }
+      // sout("all has been set to:", this.all);
+    }
+  }
+  handleNewBoard(squares: Square[]) {
+    for (let i = 0; i < squares.length; i++) {
+      const sq = squares[i];
+      const g = this.grid[sq.y][sq.x];
+      if (sq.heroes.length > 0) {
+        // sout("square has heroes: i,j: " + sq.y, sq.x, sq.heroes);
+      }
+      // Array.prototype.splice.apply(arr, [0, anotherArr.length].concat(anotherArr));
+      // g.heroes = sq.heroes;
+      g.heroes.splice(0, g.heroes.length, ...sq.heroes);
+      g.items.splice(0, g.items.length, ...sq.items);
     }
   }
   drawHeroes() {}
   drawGrid(width: number, height: number) {
-    sout("drawing grid");
+    // sout("drawing grid");
     this.grid = new Array(height);
     for (let i = 0; i < this.grid.length; i++) {
       this.grid[i] = new Array(width);
+      for (let j = 0; j < this.grid[i].length; j++) {
+        this.grid[i][j] = new GameSquareContent(i, j);
+      }
     }
   }
 }

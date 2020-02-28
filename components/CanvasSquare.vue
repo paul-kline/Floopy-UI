@@ -1,44 +1,79 @@
 <template>
-  <canvas class="nopad" ref="canvas"></canvas>
+  <v-tooltip left>
+    <template v-slot:activator="{ on }">
+      <canvas class="nopad" ref="canvas" v-on="on"></canvas>
+    </template>
+    <span v-html="tooltip"></span>
+  </v-tooltip>
 </template>
 <script lang="ts">
 import { Component, Vue, Prop, Watch } from "vue-property-decorator";
 import { Square, Hero, Item } from "~/ts/Types";
+import GameSquareContent from "~/ts/GameSquareContent";
 const sout = console.log;
 @Component
 export default class CanvasSquare extends Vue {
   @Prop() width!: number;
   @Prop() height!: number;
-  @Prop() x!: number;
-  @Prop() y!: number;
+  @Prop() gametick!: number;
   @Prop() bordercolor!: string;
-  @Prop() all: Square[] = [];
+  @Prop() gamesquarecontent!: GameSquareContent;
   canvas!: HTMLCanvasElement;
   c!: CanvasRenderingContext2D;
+  tooltip: string = "";
   mounted() {
     this.setUpCanvas();
+    sout("gamesquarecontent:", this.gamesquarecontent);
     // this.drawGrid(10, 10);
+    this.tooltip = `x: ${this.gamesquarecontent.x}, y:${this.gamesquarecontent.y}`;
   }
-  get mySquare(): Square | undefined {
-    return this.all.find(v => v.x == this.x && v.y == this.y);
+
+  calcTipText(): string {
+    const heroes = this.heroes;
+    const items = this.items;
+    let str = `x: ${this.gamesquarecontent.x}, y:${this.gamesquarecontent.y}`;
+    if (heroes.length > 0) {
+      str += "<br>Heroes: <br>";
+      for (let i = 0; i < heroes.length; i++) {
+        const hero = heroes[i];
+        str += hero.name;
+        str += "<br>hp: " + hero.hp + "/" + hero.maxHp;
+        if (hero.enemy) {
+          str += "<br> fighting: " + hero.enemy;
+        }
+        str += "<hr>";
+      }
+    }
+    if (items.length > 0) {
+      str += "<br>Items: ";
+      for (let i = 0; i < items.length; i++) {
+        str += "<br>" + items[i].name;
+      }
+    }
+    return str;
   }
   get heroes(): Hero[] {
-    const sq = this.mySquare;
-    return sq ? sq.heroes : [];
+    return this.gamesquarecontent.heroes;
   }
-  @Watch("heroes")
-  onPropertyChanged(newHeroes: Hero[], oldValue: Hero[]) {
-    // sout("my heroes changed: ", newHeroes);
-    this.drawHeroes(newHeroes);
+  get items(): Item[] {
+    return this.gamesquarecontent.items;
+  }
+  @Watch("gametick")
+  gametickchanged(newnum: number, oldnum: number) {
+    // sout("game tick changed");
+    setTimeout(this.drawHeroes, 0);
+    setTimeout(this.drawItems, 0);
+    this.tooltip = this.calcTipText();
   }
   drawHeroes(heroes: Hero[] = this.heroes) {
     const c = this.c;
-    c.clearRect(0, 0, c.canvas.width, c.canvas.height);
     const heroWidth = Math.min(
       this.canvas.width / this.heroes.length,
       this.canvas.width / 2
     );
     const height = this.canvas.height / 2;
+    c.clearRect(0, 0, c.canvas.width, height);
+
     const healthHeight = height / 4;
     let x = 0;
     for (let i = 0; i < heroes.length; i++) {
@@ -57,6 +92,41 @@ export default class CanvasSquare extends Vue {
       const healthleft = (hero.hp / hero.maxHp) * heroWidth;
       c.fillRect(x, 0, healthleft, healthHeight);
       x += heroWidth;
+    }
+  }
+  drawItems(items: Item[] = this.items) {
+    const c = this.c;
+    const itemWidth = Math.min(
+      this.canvas.width / items.length,
+      this.canvas.width / 2
+    );
+    const height = this.canvas.height / 2;
+    c.clearRect(0, height, c.canvas.width, height);
+
+    let x = 0;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      // const color = this.getColor(hero);
+      const color = item.color;
+      c.fillStyle = color;
+      c.strokeStyle = "white";
+      //draw the item:
+      const triangle = new Path2D();
+      // c.beginPath();
+
+      triangle.moveTo(x + itemWidth / 2, height);
+
+      triangle.lineTo(x, this.canvas.height);
+      triangle.lineTo(x + itemWidth, this.canvas.height);
+      // c.lineTo(x + itemWidth / 2, height);
+
+      triangle.closePath();
+
+      c.fill(triangle);
+      c.stroke(triangle);
+
+      x += itemWidth;
     }
   }
   // getColor(hero: Hero) {

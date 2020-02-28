@@ -13,6 +13,7 @@ export interface Hero {
   color: string;
   name: string;
   type: string;
+  enemy: string;
   x: number;
   y: number;
 }
