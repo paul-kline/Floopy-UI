@@ -30,38 +30,56 @@
         </div>
       </div>
       <div class="d-flex flex-column ml-3">
-        <v-btn class="mt-3" v-on:click="onRestart">Restart</v-btn>
-        <v-btn class="mt-3" v-on:click="onStep">Step</v-btn>
-        <v-btn class="mt-3" v-on:click="onGo">Go!</v-btn>
-        <v-btn class="mt-3" v-on:click="onStop">Stop!</v-btn>
-        <span style="min-width:120px;">Delay: {{delay}}ms</span>
-        <v-slider v-model="delay" min="1" max="10000" v-on:mouseup="onSetDelay"></v-slider>
+        <v-btn class="mt-3" v-on:click="onRestart" :disabled="!isConnected()">Restart</v-btn>
+        <v-btn class="mt-3" v-on:click="onStep" :disabled="!isConnected()">Step</v-btn>
+        <v-btn class="mt-3" v-on:click="onGo" :disabled="!isConnected()">Go!</v-btn>
+        <v-btn class="mt-3" v-on:click="onStop" :disabled="!isConnected()">Stop!</v-btn>
+        <span style="min-width:120px;" :disabled="!isConnected()">Delay: {{delay}}ms</span>
+        <v-slider
+          v-model="delay"
+          min="1"
+          max="10000"
+          v-on:mouseup="onSetDelay"
+          :disabled="!isConnected()"
+        ></v-slider>
       </div>
     </div>
+    <LeaderBoard :heroes="currentHeroList"></LeaderBoard>
   </div>
 </template>
 <script lang="ts">
 import { Component, Vue } from "vue-property-decorator";
 import CanvasSquare from "~/components/CanvasSquare.vue";
-import { Square } from "~/ts/Types";
+import LeaderBoard from "~/components/LeaderBoard.vue";
+import { Square, Hero } from "~/ts/Types";
 import GameSquareContent from "~/ts/GameSquareContent";
 const sout = console.log;
-@Component({ components: { CanvasSquare } })
+@Component({ components: { CanvasSquare, LeaderBoard } })
 export default class FloopyComponent extends Vue {
   canvas!: HTMLCanvasElement;
   c!: CanvasRenderingContext2D;
   grid: GameSquareContent[][] = [];
-  socket!: WebSocket;
+  socket: WebSocket = null as any;
+  currentHeroList: Hero[] = [];
+  connectingStatus: string[] = ["connecting", "connecting..", "connecting..."];
+  connectionAttempts: number = 0;
   port: number = 8887;
   cellSize: number = 65;
   delay: number = 1000;
   all: Square[] = [];
   gametick: number = 0;
+  isConnected(): boolean {
+    // sout(this.getSocket().readyState);
+    return this.getSocket() && this.getSocket().readyState == 1;
+  }
   status() {
     if (this.getSocket()) {
       switch (this.getSocket().readyState) {
         case 0:
-          return "CONNECTING";
+          // return "CONNECTING";
+          return this.connectingStatus[
+            this.connectionAttempts % this.connectingStatus.length
+          ];
         case 1:
           return "OPEN";
         case 2:
@@ -73,7 +91,7 @@ export default class FloopyComponent extends Vue {
           return "????";
       }
     } else {
-      return "no socket";
+      return "no socket. Make sure your program is running and refresh this page.";
     }
   }
   mounted() {
@@ -110,6 +128,7 @@ export default class FloopyComponent extends Vue {
     return this.socket;
   }
   setUpSocket() {
+    this.connectionAttempts++;
     this.socket = new WebSocket(`ws://lvh.me:${this.port}`);
     this.socket.onmessage = (ev: MessageEvent) => {
       // sout("Message received!", ev.data);
@@ -120,6 +139,23 @@ export default class FloopyComponent extends Vue {
         sout("could not parse received message: ", ev.data, e);
       }
       return ev;
+    };
+    this.socket.onclose = (ev: Event) => {
+      sout("socket was closed!!", ev);
+      if (this.socket) {
+        // (this.socket as any).onerror(ev);
+        this.socket.close();
+        this.socket = null as any;
+      }
+    };
+    this.socket.onerror = (ev: Event) => {
+      sout("there was an error. Attempting reconnection...", ev);
+      if (this.socket) {
+        this.socket.close();
+      }
+      setTimeout(() => {
+        this.setUpSocket();
+      }, 3000);
     };
   }
   handleMessage(obj: any) {
@@ -137,6 +173,7 @@ export default class FloopyComponent extends Vue {
     }
   }
   handleNewBoard(squares: Square[]) {
+    this.currentHeroList = [];
     for (let i = 0; i < squares.length; i++) {
       const sq = squares[i];
       const g = this.grid[sq.y][sq.x];
@@ -145,6 +182,7 @@ export default class FloopyComponent extends Vue {
       }
       // Array.prototype.splice.apply(arr, [0, anotherArr.length].concat(anotherArr));
       // g.heroes = sq.heroes;
+      this.currentHeroList.push(...sq.heroes);
       g.heroes.splice(0, g.heroes.length, ...sq.heroes);
       g.items.splice(0, g.items.length, ...sq.items);
     }

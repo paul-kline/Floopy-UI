@@ -80,17 +80,40 @@ export default class CanvasSquare extends Vue {
       const hero = this.heroes[i];
       // const color = this.getColor(hero);
       const color = hero.color;
-      //draw the fellow:
-      c.fillStyle = color;
-      c.fillRect(x, 0, heroWidth, height);
-      c.strokeStyle = "white";
-      c.strokeRect(x, 0, heroWidth, height);
+      if (isURL(color)) {
+        const e: HTMLImageElement | null = document.getElementById(
+          color
+        ) as HTMLImageElement | null;
+        let img: HTMLImageElement;
+        if (e) {
+          img = e;
+        } else {
+          img = document.createElement("img");
+          img.src = color;
+          img.id = color;
+          img.style.display = "none";
+          const b = document.querySelector("body") as HTMLBodyElement;
+
+          b.appendChild(img);
+          // img.height = height;
+          // img.width = heroWidth;
+        }
+
+        c.drawImage(img, x, 0, heroWidth, height);
+      } else {
+        //draw the fellow:
+        c.fillStyle = color;
+        c.fillRect(x, 0, heroWidth, height);
+        c.strokeStyle = "white";
+        c.strokeRect(x, 0, heroWidth, height);
+      }
       //draw the health
       c.fillStyle = "red";
       c.fillRect(x, 0, heroWidth, healthHeight);
       c.fillStyle = "green";
       const healthleft = (hero.hp / hero.maxHp) * heroWidth;
       c.fillRect(x, 0, healthleft, healthHeight);
+
       x += heroWidth;
     }
   }
@@ -109,23 +132,36 @@ export default class CanvasSquare extends Vue {
       const item = items[i];
       // const color = this.getColor(hero);
       const color = item.color;
-      c.fillStyle = color;
-      c.strokeStyle = "white";
-      //draw the item:
-      const triangle = new Path2D();
-      // c.beginPath();
+      if (isURL(color)) {
+        let img = document.getElementById(color) as HTMLImageElement | null;
+        if (!img) {
+          img = document.createElement("img");
+          img.src = color;
+          img.id = color;
+          img.style.display = "none";
+          const b = document.querySelector("body") as HTMLBodyElement;
+          b.appendChild(img);
+        }
 
-      triangle.moveTo(x + itemWidth / 2, height);
+        c.drawImage(img, x, height, itemWidth, height);
+      } else {
+        c.fillStyle = color;
+        c.strokeStyle = "white";
+        //draw the item:
+        const triangle = new Path2D();
+        // c.beginPath();
 
-      triangle.lineTo(x, this.canvas.height);
-      triangle.lineTo(x + itemWidth, this.canvas.height);
-      // c.lineTo(x + itemWidth / 2, height);
+        triangle.moveTo(x + itemWidth / 2, height);
 
-      triangle.closePath();
+        triangle.lineTo(x, this.canvas.height);
+        triangle.lineTo(x + itemWidth, this.canvas.height);
+        // c.lineTo(x + itemWidth / 2, height);
 
-      c.fill(triangle);
-      c.stroke(triangle);
+        triangle.closePath();
 
+        c.fill(triangle);
+        c.stroke(triangle);
+      }
       x += itemWidth;
     }
   }
@@ -172,6 +208,10 @@ export default class CanvasSquare extends Vue {
     this.canvas.height = this.height;
     this.canvas.style.border = `1px solid ${this.bordercolor || "white"}`;
   }
+}
+function isURL(str: string): boolean {
+  const m = str.match(/^https?:\/\//);
+  return m ? true : false;
 }
 </script>
 <style scoped>
